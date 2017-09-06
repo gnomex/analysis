@@ -1,0 +1,9 @@
+scapy-python3
+scapy-http
+scikit-learn
+scikit-image
+netaddr
+numpy
+pandas
+matplotlib
+dicttoxml
