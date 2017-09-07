@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 from scapy.all import *
+# from scipy.misc import imsave
 import pprint
 import sys
 import glob
@@ -15,14 +16,22 @@ try:
 except ImportError:
     from scapy.layers import http
 
-DEBUG = True
-# DEBUG = False
+# DEBUG = True
+DEBUG = False
 
-PKTS_TOTAL=0
-HTTP_PKTS=0
-TFS_PROCESSED = []
-TFS_PROCESSED_DUP = []
-HOSTS = {}
+PROCESSED_HOSTS = {}
+
+def h_name(host_addr):
+    if host_addr in PROCESSED_HOSTS:
+        return PROCESSED_HOSTS[host_addr]
+    else:
+        hn = "h" + str(len(PROCESSED_HOSTS))
+        PROCESSED_HOSTS[host_addr] = hn
+
+        return hn
+
+def h_index(host_name):
+    return int(re.sub("[^\d.]+", "", host_name))
 
 def session_extractor(p):
     sess = "Other"
@@ -41,59 +50,29 @@ def session_extractor(p):
                 sess = p.sprintf("ICMP %IP.src% > %IP.dst% type=%r,ICMP.type% code=%r,ICMP.code% id=%ICMP.id%")
             else:
                 sess = p.sprintf("IP %IP.src% > %IP.dst% proto=%IP.proto%")
+
+        elif 'IPv6' in p:
+            h_src = h_name(p[IPv6].src)
+            h_dst = h_name(p[IPv6].dst)
+
+            if 'TCP' in p:
+                teste = "TCP {}:%r,TCP.sport% > {}:%r,TCP.dport%".format(h_src, h_dst)
+                sess = p.sprintf(teste)
+            elif 'UDP' in p:
+                teste = "UDP {}:%r,UDP.sport% > {}:%r,UDP.dport%".format(h_src, h_dst)
+                sess = p.sprintf(teste)
+            elif 'ICMP' in p:
+                sess = p.sprintf("ICMP %IPv6.src% > %IPv6.dst% type=%r,ICMP.type% code=%r,ICMP.code% id=%ICMP.id%")
+            else:
+                sess = p.sprintf("IPv6 %IPv6.src% > %IPv6.dst% proto=%IPv6.proto%")
+
         elif 'ARP' in p:
             sess = p.sprintf("ARP %ARP.psrc% > %ARP.pdst%")
         else:
             sess = p.sprintf("Ethernet type=%04xr,Ether.type%")
     return sess
 
-def interesting(packet):
-    def expand(x):
-        yield x
-        while x.payload:
-            x = x.payload
-            yield x
-
-    res = list(expand(packet))
-
-def h_name(host_addr):
-    if host_addr in HOSTS:
-        return HOSTS[host_addr]
-    else:
-        hn = "h" + str(len(HOSTS))
-        HOSTS[host_addr] = hn
-
-        return hn
-
-def h_index(h_name):
-    return int(re.sub("[^\d.]+", "", h_name))
-
-def do_magic(pcap_file):
-    global PKTS_TOTAL
-    global HTTP_PKTS
-
-    pkts_statistics = {}
-
-    p = rdpcap(pcap_file)
-
-    sessions = p.sessions(session_extractor)
-
-    if DEBUG:
-        pp.pprint(sessions)
-
-    for session in sessions:
-        for packet in sessions[session]:
-            PKTS_TOTAL += 1
-
-            if packet.haslayer('HTTP'):
-                HTTP_PKTS += 1
-
-            dissect_packet(packet, pkts_statistics)
-
-    build_traffic_matrix(pkts_statistics)
-
 def dissect_packet(pkt, pkts_statistics):
-
     if pkt.haslayer(IP):
         try:
             # src = pkt[IP].src
@@ -104,46 +83,41 @@ def dissect_packet(pkt, pkts_statistics):
             if src in pkts_statistics:
                 # already added
                 if dst in pkts_statistics[src]:
-
                     pkts_statistics[src][dst]['len'] += int(pkt[IP].len)
                     pkts_statistics[src][dst]['packets'] += 1
-                    # handle different protos: ARP, ICMP, TCP, UDP
-
                 else:
                     # add new dst entry
                     pkts_statistics[src][dst] = {
-                        'len': pkt[IP].len,
+                        'len': int(pkt[IP].len),
                         'proto': pkt[IP].proto,
                         'packets': 1
                     }
-
             else:
                 # add new OD entry
                 pkts_statistics[src] = {
                     dst: {
-                        'len': pkt[IP].len,
+                        'len': int(pkt[IP].len),
                         'proto': pkt[IP].proto,
                         'packets': 1
                     }
                 }
 
         except Exception as e:
-            print(e)
+            pp.pprint("Something rot dissecting IP: {} for pkt {}".format(e, pkt.show()))
+
     elif pkt.haslayer(ARP):
         try:
             src = h_name(pkt[ARP].psrc)
             dst = h_name(pkt[ARP].pdst)
 
-            pp.pprint("from {} to {}, details: {}".format(src, dst, len(pkt[ARP])))
+            if DEBUG:
+                pp.pprint("from {} to {}, details: {}".format(src, dst, len(pkt[ARP])))
 
             if src in pkts_statistics:
                 # already added
                 if dst in pkts_statistics[src]:
-
                     pkts_statistics[src][dst]['len'] += int(len(pkt[ARP]))
                     pkts_statistics[src][dst]['packets'] += 1
-                    # handle different protos: ARP, ICMP, TCP, UDP
-
                 else:
                     # add new dst entry
                     pkts_statistics[src][dst] = {
@@ -151,7 +125,6 @@ def dissect_packet(pkt, pkts_statistics):
                         'proto': pkt[ARP].ptype,
                         'packets': 1
                     }
-
             else:
                 # add new OD entry
                 pkts_statistics[src] = {
@@ -163,18 +136,17 @@ def dissect_packet(pkt, pkts_statistics):
                 }
 
         except Exception as e:
-            print(e)
+            pp.pprint("Something rot dissecting ARP {}".format(e))
 
 def build_traffic_matrix(pkts_statistics):
-    n = len(HOSTS)
-    # tf = np.zeros((n,n), dtype=np.uint8)
+    n = len(PROCESSED_HOSTS)
 
     if DEBUG:
         pp.pprint("New matrix with {} x {}".format(n,n))
 
     tf = np.zeros((n,n), dtype=np.uint32)
     # tf.fill(0xFFFFFFFF)
-    tfd = np.zeros((n,n), dtype=object)
+    # tfd = np.zeros((n,n), dtype=object)
 
     for k, v in pkts_statistics.items():
         if DEBUG: print("Processing {}".format(k))
@@ -186,25 +158,39 @@ def build_traffic_matrix(pkts_statistics):
 
             try:
                 tf[hi1][hi2] = sv['len']
-                tfd[hi1][hi2] = sv #['len']
+                # tfd[hi1][hi2] = sv #['len']
             except Exception as e:
-                print(e)
+                pp.pprint("Something rot build TF {}".format(e))
 
-    TFS_PROCESSED.append(tf)
-    TFS_PROCESSED_DUP.append(tfd)
+    # TFS_PROCESSED.append(tf)
+    # TFS_PROCESSED_DUP.append(tfd)
+    return tf
 
-# def just_do_something(pcap_file):
-    # with PcapReader(pcap_file) as pcap_reader:
-        # for pkt in pcap_reader:
-            # dissect_packet(pkt)
+def do_magic(pcap_file):
+    pkts_statistics = {}
+
+    p = rdpcap(pcap_file)
+
+    sessions = p.sessions(session_extractor)
+
+    if DEBUG:
+        pp.pprint(sessions)
+
+    for session in sessions:
+        for packet in sessions[session]:
+            dissect_packet(packet, pkts_statistics)
+
+    tfs = build_traffic_matrix(pkts_statistics)
+
+    plot_things(os.path.basename(pcap_file), tfs)
 
 def h_entries():
-    return list(HOSTS.values())
+    return list(PROCESSED_HOSTS.values())
 
-def plot_things(index):
-    H = TFS_PROCESSED[index]
-    H1 = TFS_PROCESSED_DUP[index]
+def plot_things(filename, matrix):
+    H = matrix
     shape = (H.shape)[0]
+    # H1 = TFS_PROCESSED_DUP[index]
 
     hs = h_entries()
 
@@ -214,7 +200,7 @@ def plot_things(index):
 
     # # for y in range(H.shape[0]):
     # #     for x in range(H.shape[1]):
-    # #         plt.text(x + 0.5, y + 0.5, str(H1[y, x]),
+    #         plt.text(x + 0.5, y + 0.5, str(H1[y, x]),
     # #                  horizontalalignment='center',
     # #                  verticalalignment='center',
     # #                  multialignment='center',
@@ -244,39 +230,37 @@ def plot_things(index):
     cax = ax.matshow(H, cmap='GnBu', interpolation='nearest')
     fig.colorbar(cax)
 
-    # ax.set_xticklabels([]+hs)
-    # ax.set_yticklabels([]+hs)
+    # ax.set_xticklabels(['']+hs)
+    # ax.set_yticklabels(['']+hs)
 
     if DEBUG:
-        plt.savefig("./figs/DEBUG-FIG-{}.png".format(index), bbox_inches=None)
+        plt.savefig("../figs/DEBUG-FIG-{}.png".format(filename), bbox_inches=None)
         plt.show()
     else:
-        plt.savefig("./figs/fig{}.png".format(index), bbox_inches='tight')
-    # imsave("./figs/fig{}_bitmap.png".format(index), H)
+        plt.savefig("../figs/OD-{}.png".format(filename), bbox_inches='tight')
+    # imsave("../figs/OD-{}_bitmap.png".format(filename), H)
 
     plt.close('all')
 
 pp = pprint.PrettyPrinter(indent=1)
-# print(dicttoxml.dicttoxml(pkt_analysis, attr_type=False))
 
 if DEBUG:
-    one_filename = '../../Pcaps/201709031400.pcap'
+    one_filename = '../../Pcaps/118-dump.pcap'
     do_magic(one_filename)
 else:
     path = '../../Pcaps'
-    # path = '../../pcaps-da-net'
+
     for filename in glob.glob(os.path.join(path, '*.pcap')):
-        pp.pprint(filename)
-        do_magic(filename)
 
-if DEBUG:
-    pp.pprint(TFS_PROCESSED)
-    pp.pprint(TFS_PROCESSED_DUP)
+        pp.pprint("Reading {}".format(filename))
 
-print("Total of {} analyzed pkts and {} are HTTP ".format(PKTS_TOTAL, HTTP_PKTS))
-print("Done, now I will show it!")
+        try:
+            do_magic(filename)
 
-from scipy.misc import imsave
+        except Exception as e:
+            pp.pprint("Something rot there {}".format(e))
 
-for index in range(0, len(TFS_PROCESSED)):
-    plot_things(index)
+        finally:
+            PROCESSED_HOSTS.clear()
+
+
