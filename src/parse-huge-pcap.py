@@ -138,6 +138,11 @@ def dissect_packet(pkt, pkts_statistics):
         except Exception as e:
             pp.pprint("Something rot dissecting ARP {}".format(e))
 
+def paint(proto, count):
+    a = count << 4
+    a = a | proto
+    return a
+
 def build_traffic_matrix(pkts_statistics):
     n = len(PROCESSED_HOSTS)
 
@@ -157,7 +162,8 @@ def build_traffic_matrix(pkts_statistics):
             hi2 = h_index(sk)
 
             try:
-                tf[hi1][hi2] = sv['len']
+                # tf[hi1][hi2] = sv['len']
+                tf[hi1][hi2] = paint(sv['proto'], sv['len'])
                 # tfd[hi1][hi2] = sv #['len']
             except Exception as e:
                 pp.pprint("Something rot build TF {}".format(e))

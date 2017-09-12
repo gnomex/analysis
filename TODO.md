@@ -27,6 +27,20 @@
 [ ] -
 [ ] -
 [ ] -
+[ ] - get malware traffic pcaps
+[ ] - get good traffic pcaps
+
+
+
+
 [ ] -
-
-
+[ ] -
+[ ] -
+[ ] -
+[ ] -
+[ ] -
+[ ] -
+[ ] -
+[ ] -
+...
+[ ] -
