@@ -16,8 +16,8 @@ try:
 except ImportError:
     from scapy.layers import http
 
-# DEBUG = True
-DEBUG = False
+DEBUG = True
+# DEBUG = False
 
 PROCESSED_HOSTS = {}
 
@@ -79,6 +79,8 @@ def dissect_packet(pkt, pkts_statistics):
             # dst = pkt[IP].dst
             src = h_name(pkt[IP].src)
             dst = h_name(pkt[IP].dst)
+
+            # TODO: improve proto discovery
 
             if src in pkts_statistics:
                 # already added
@@ -217,23 +219,24 @@ def plot_things(filename, matrix):
     ax = fig.add_subplot(1,1,1)
 
     # major ticks every 20, minor ticks every 5
-    major_ticks = np.arange(0, shape, 1)
-    minor_ticks = np.arange(0, shape, 1)
+    # major_ticks = np.arange(0, shape, 1)
+    # minor_ticks = np.arange(0, shape, 1)
 
-    ax.set_xticks(major_ticks)
-    ax.set_xticks(minor_ticks, minor=True)
-    ax.set_yticks(major_ticks)
-    ax.set_yticks(minor_ticks, minor=True)
+    # ax.set_xticks(major_ticks)
+    # ax.set_xticks(minor_ticks, minor=True)
+    # ax.set_yticks(major_ticks)
+    # ax.set_yticks(minor_ticks, minor=True)
 
     # and a corresponding grid
-    ax.grid(which='both')
+    # ax.grid(which='both')
     # or if you want differnet settings for the grids:
-    ax.grid(which='minor', alpha=0.2)
-    ax.grid(which='major', alpha=0.5)
+    # ax.grid(which='minor', alpha=0.2)
+    # ax.grid(which='major', alpha=0.5)
 
     # ax.grid(True)
     # cax = ax.matshow(H, cmap='Greys', interpolation='nearest')
-    cax = ax.matshow(H, cmap='GnBu', interpolation='nearest')
+    # cax = ax.matshow(H, cmap='GnBu', interpolation='nearest')
+    cax = ax.matshow(H, cmap='gray', interpolation='bilinear')
     fig.colorbar(cax)
 
     # ax.set_xticklabels(['']+hs)
@@ -251,7 +254,8 @@ def plot_things(filename, matrix):
 pp = pprint.PrettyPrinter(indent=1)
 
 if DEBUG:
-    one_filename = '../../Pcaps/118-dump.pcap'
+    # one_filename = '../../Pcaps/120-dump.pcap'
+    one_filename = '../../Pcaps/c06-ldapv3-enc-r1.pcap'
     do_magic(one_filename)
 else:
     path = '../../Pcaps'
