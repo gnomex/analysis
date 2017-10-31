@@ -68,7 +68,8 @@ def do_magic(filename):
 
         newsize = (w * scale_by, h * scale_by)
         img = img.resize(newsize)
-        img.save("../dump_as_imgs/pd-{}.png".format(os.path.basename(filename)))
+        # img.save("../dump_as_imgs/pd-{}.png".format(os.path.basename(filename)))
+        img.save("../dump_as_imgs/pd-{}.jpeg".format(os.path.basename(filename)), 'jpeg')
     except Exception as e:
         print("Something rot there {}, file {}".format(e, filename))
 
