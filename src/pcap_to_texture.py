@@ -60,16 +60,21 @@ def do_magic(filename):
     # F (32-bit floating point pixels)
 
     try:
-        img = Image.fromarray(tf, mode='P')
+        # img = Image.fromarray(tf, mode='P')
+        img = Image.fromarray(tf, mode='L')
         # img = Image.fromarray(tf, mode='RGB')
         w, h = img.size
         scale_by = 10
+
+        if h > 10000:
+            scale_by = 1
+
         print("W {} and h {}".format(w, h))
 
         newsize = (w * scale_by, h * scale_by)
         img = img.resize(newsize)
         # img.save("../dump_as_imgs/pd-{}.png".format(os.path.basename(filename)))
-        img.save("../dump_as_imgs/pd-{}.jpeg".format(os.path.basename(filename)), 'jpeg')
+        img.save("../dump_as_imgs/pd-{}.jpg".format(os.path.basename(filename)), format='JPEG', subsampling=0, quality=100)
     except Exception as e:
         print("Something rot there {}, file {}".format(e, filename))
 
@@ -88,4 +93,3 @@ for filename in glob.glob(os.path.join(path, '*.pcap')):
 
     except Exception as e:
         print("Something rot there {}, file {}".format(e, filename))
-
