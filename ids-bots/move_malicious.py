@@ -18,7 +18,6 @@ try:
 
         try:
             proc = subprocess.Popen(["docker run --rm -it -v {}:/pcap rapid7/suricata -l /pcap -k none -r /pcap/{}".format(path, os.path.basename(filename))], shell=True)
-            # proc = subprocess.Popen(["docker run --rm -it -v {}:/pcap rapid7/suricata -l /pcap -k all -r /pcap/{}".format(path, os.path.basename(filename))], shell=True)
             PID = proc.pid
             proc.wait()
 

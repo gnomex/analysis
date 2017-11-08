@@ -6,7 +6,7 @@ import glob
 import numpy as np
 from PIL import Image
 
-def do_magic(filename):
+def do_magic(img_path, filename):
     DUMP = []
     packets = rdpcap(filename)
     # sessions = packets.sessions()
@@ -74,22 +74,25 @@ def do_magic(filename):
         newsize = (w * scale_by, h * scale_by)
         img = img.resize(newsize)
         # img.save("../dump_as_imgs/pd-{}.png".format(os.path.basename(filename)))
-        img.save("../dump_as_imgs/pd-{}.jpg".format(os.path.basename(filename)), format='JPEG', subsampling=0, quality=100)
+        img.save("{}/pd-{}.jpg".format(img_path, os.path.basename(filename)), format='JPEG', subsampling=0, quality=100)
     except Exception as e:
         print("Something rot there {}, file {}".format(e, filename))
 
 # file = '../../Pcaps/arp-storm.pcap'
 # do_magic(file)
 
-# path = '../../Pcaps'
-path = '../../kenner-pcaps'
+path = '../../Pcaps'
+img_path = '../good_pcaps'
+
+# path = '../../kenner-pcaps'
+# img_path = '../bad_pcaps'
 
 for filename in glob.glob(os.path.join(path, '*.pcap')):
 
     print("Reading {}".format(filename))
 
     try:
-        do_magic(filename)
+        do_magic(img_path, filename)
 
     except Exception as e:
         print("Something rot there {}, file {}".format(e, filename))
