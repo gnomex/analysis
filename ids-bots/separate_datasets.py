@@ -6,10 +6,8 @@ import sys
 import signal
 import subprocess
 
-# path = '/home/gnomex/HomeWorkMalwareAnalysis/Pcaps'
-path = '/media/gnomex/zebras/kenner-pcaps'
-# malware_path = '/home/gnomex/HomeWorkMalwareAnalysis/kenner-pcaps'
-malware_path = '/media/gnomex/zebras/kenner-pcaps-good'
+path = '/media/gnomex/zebras/kenner-pcap-flows'
+malware_path = '/media/gnomex/zebras/malicious-pcap-flows'
 
 PID = None
 
@@ -30,14 +28,13 @@ try:
             proc.wait()
 
             if (os.path.isfile("{}/fast.log".format(path)) and os.stat("{}/fast.log".format(path)).st_size != 0) or (os.path.isfile("{}/notice.log".format(path)) and os.stat("{}/notice.log".format(path)).st_size != 0):
-              # move to suspect/malicious folder
-              # print("malicious pcap found, moving to right folder")
               print("suspect pcap!")
-            else:
-              print("Good pcap, moving...")
+              # move to suspect/malicious folder
               proc = subprocess.Popen(["mv {} {}/{}".format(filename, malware_path, os.path.basename(filename))], shell=True)
               PID = proc.pid
               proc.wait()
+            else:
+              print("Good pcap, moving on...")
 
             for f in glob.glob("{}/*.log".format(path)):
               os.remove(f)
